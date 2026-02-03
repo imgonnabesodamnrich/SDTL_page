@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Battery SOH Estimation Note - SDTL</title>
+    <!-- GitHub Markdown CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.2.0/github-markdown.min.css">
+    <style>
+        /* Global Layout */
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            min-height: 100vh;
+            background-color: #fff;
+            font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+        }
+
+        /* ----- Sidebar Styles ----- */
+        .sidebar {
+            width: 280px;
+            background-color: #f6f8fa; /* GitHub Sidebar Grey */
+            border-right: 1px solid #d0d7de;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+            padding: 24px;
+            box-sizing: border-box;
+            top: 0;
+            left: 0;
+            z-index: 100;
+        }
+
+        .sidebar h2 {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: #24292f;
+        }
+
+        .sidebar ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .sidebar li {
+            margin-bottom: 8px;
+        }
+
+        /* Sidebar Link Styles */
+        .sidebar a {
+            text-decoration: none;
+            color: #57606a;
+            font-size: 14px;
+            display: block;
+            padding: 4px 0;
+            transition: color 0.2s;
+        }
+
+        .sidebar a:hover {
+            color: #0969da; /* GitHub Blue */
+            text-decoration: underline;
+        }
+
+        /* Sub-menu Indentation */
+        .sidebar .sub-menu {
+            margin-left: 20px;
+            margin-top: 4px;
+            font-size: 13px;
+        }
+
+        /* ----- Main Content Styles ----- */
+        .main-content {
+            margin-left: 280px; /* Space for Sidebar */
+            flex: 1;
+            padding: 40px 60px;
+            max-width: 1000px;
+        }
+
+        /* Smooth Scrolling */
+        html {
+            scroll-behavior: smooth;
+        }
+
+        /* Center Images */
+        div[align="center"] {
+            text-align: center;
+            margin: 20px 0;
+        }
+        
+        /* Table Scroll */
+        table {
+            display: block;
+            width: 100%;
+            overflow: auto;
+        }
+
+        /* Mobile Responsiveness */
+        @media (max-width: 900px) {
+            body { display: block; }
+            .sidebar {
+                position: relative;
+                width: 100%;
+                height: auto;
+                border-right: none;
+                border-bottom: 1px solid #d0d7de;
+            }
+            .main-content {
+                margin-left: 0;
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Sidebar Navigation -->
+    <nav class="sidebar">
+    <div style="margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid var(--border-color); display: flex; gap: 8px; flex-wrap: wrap;">
+        <span style="font-size: 0.8rem; color: var(--text-light); width: 100%;">语言 / Language / 言語 / 언어:</span>
+        <a href="../zh/index.html" style="color: var(--primary-color); font-weight: bold; font-size: 0.85rem;">中文</a>
+        <a href="../en/index.html" style="color: var(--primary-color); font-weight: bold; font-size: 0.85rem;">English</a>
+        <a href="../jp/index.html" style="color: var(--primary-color); font-weight: bold; font-size: 0.85rem;">日本語</a>
+        <a href="../kr/index.html" style="color: var(--primary-color); font-weight: bold; font-size: 0.85rem;">한국어</a>
+    </div>
+      
+        <h2>Contents</h2>
+        <ul>
+            <li><a href="#1-background--motivation">1. Background & Motivation</a></li>
+            <li><a href="#2-core-challenges-small-samples--cross-domain">2. Core Challenges</a></li>
+            <li>
+                <a href="#3-sdtl-architecture">3. SDTL Architecture</a>
+                <ul class="sub-menu">
+                    <li><a href="#31-extraction-and-screening-of-health-indicators-his">3.1 Extraction of HIs</a></li>
+                    <li><a href="#32-advantages-of-self-attention-mechanism">3.2 Self-Attention Mechanism</a></li>
+                    <li><a href="#33-transfer-learning-strategy">3.3 Transfer Learning Strategy</a></li>
+                </ul>
+            </li>
+            <li><a href="#4-experiment-design--datasets">4. Experiment Design</a></li>
+            <li><a href="#5-performance-evaluation">5. Performance Evaluation</a></li>
+            <li><a href="#6-conclusion">6. Conclusion</a></li>
+            <li><a href="#link-to-paper">Link to Paper</a></li>
+        </ul>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content markdown-body">
+        
+        <h1>Battery SOH Estimation Note: Self-attention based Deep Transfer Learning (SDTL)</h1>
+
+        <blockquote>
+            <p><strong>Deep Transfer Learning for Battery SOH Estimation</strong></p>
+            <p><strong>Paper Title:</strong> <em>Deep transfer learning enabled online state-of-health estimation of lithium-ion batteries under small samples across different cathode materials, ambient temperature and charge-discharge protocols</em></p>
+            <p><strong>Journal:</strong> <em>Journal of Power Sources</em>, Vol. 650, 2025, 237503</p>
+            <p><strong>DOI:</strong> <a href="https://doi.org/10.1016/j.jpowsour.2025.237503">10.1016/j.jpowsour.2025.237503</a></p>
+        </blockquote>
+
+        <p>
+            <a href="https://doi.org/10.1016/j.jpowsour.2025.237503"><img src="https://img.shields.io/badge/DOI-10.1016%2Fj.jpowsour.2025.237503-007ec6" alt="DOI"></a>
+            <a href="#"><img src="https://img.shields.io/badge/Status-Published-44cc11" alt="Status"></a>
+            <a href="#"><img src="https://img.shields.io/badge/Topic-Transfer%20Learning-ff8c00" alt="Topic"></a>
+        </p>
+
+        <!-- Hidden in-page TOC for structure reference -->
+        <h2 id="contents">Contents</h2>
+        <ul>
+            <li><a href="#1-background--motivation">1. Background & Motivation</a></li>
+            <li><a href="#2-core-challenges-small-samples--cross-domain">2. Core Challenges: Small Samples & Cross-domain</a></li>
+            <li><a href="#3-sdtl-architecture">3. SDTL Architecture Analysis</a></li>
+            <li><a href="#4-experiment-design--datasets">4. Experiment Design & Multi-source Datasets</a></li>
+            <li><a href="#5-performance-evaluation">5. Performance Evaluation & Results</a></li>
+            <li><a href="#6-conclusion">6. Conclusion</a></li>
+            <li><a href="#link-to-paper">Link to Paper</a></li>
+        </ul>
+
+        <hr>
+
+        <h2 id="1-background--motivation">1. Background & Motivation</h2>
+        <p>State-of-health (SOH) estimation of lithium-ion batteries is of great significance for ensuring the safety of energy storage systems and optimizing maintenance costs. With the development of deep learning technology, data-driven methods have shown extremely high accuracy in SOH prediction. However, when laboratory models are pushed to practical applications, they are often limited by different battery material systems from various manufacturers, variable operating environments, and cumbersome data labeling processes.</p>
+
+        <h2 id="2-core-challenges-small-samples--cross-domain">2. Core Challenges: Small Samples & Cross-domain</h2>
+        <p>In actual engineering scenarios, SOH estimation mainly faces the following two difficulties:</p>
+        <ul>
+            <li><strong>Data Scarcity (Early Stage)</strong>: When new batteries are put into use, there is very little degradation data available for training. Traditional deep learning models are prone to overfitting when data volume is insufficient (small samples).</li>
+            <li><strong>Domain Shift</strong>: Battery degradation laws change with variations in cathode materials (e.g., NCM vs. NCA), ambient temperatures (high vs. low), and charge-discharge protocols. A model trained in one scenario often suffers a significant drop in accuracy when directly applied to another.</li>
+        </ul>
+
+        <h2 id="3-sdtl-architecture">3. SDTL Architecture Analysis</h2>
+        <p>The idea of the Self-attention based Deep Transfer Learning (SDTL) framework proposed in the paper is "General degradation knowledge extraction + Rapid adaptation to target scenes".</p>
+
+        <div align="center">
+          <img src="https://github.com/user-attachments/assets/6b6e863d-13f0-4e45-a937-929d0944dde3" />
+          <p><em>Fig. 1 Framework of online State-of-Health (SOH) estimation based on deep transfer learning</em></p>
+        </div>
+
+        <h3 id="31-extraction-and-screening-of-health-indicators-his">3.1 Extraction and Screening of Health Indicators (HIs)</h3>
+        <p>Feature quality directly determines the upper limit of the model. This study extracted 18 health indicators from voltage, current, time, and incremental capacity (IC) curves, including:</p>
+        <ul>
+            <li><strong>Statistical Features</strong>: Mean, variance, skewness, kurtosis, and information entropy, etc.</li>
+            <li><strong>Electrochemical Features</strong>: Constant current/constant voltage charging time, IC curve peak, voltage slope, etc.</li>
+            <li><strong>Screening Strategy</strong>: Sensitivity analysis was performed using Pearson Correlation Coefficient (PCC). Finally, <strong>HI5 (Constant Current Discharge Time)</strong>, <strong>HI17 (Charging Current Entropy)</strong>, and <strong>HI18 (Charging Current Slope)</strong> were selected as model inputs, effectively balancing computational efficiency and prediction correlation.</li>
+        </ul>
+
+        <p><strong>Table 1: List of Multi-source Health Indicators (HIs)</strong></p>
+
+        <table>
+            <thead>
+                <tr>
+                    <th align="center">No.</th>
+                    <th align="left">Description</th>
+                    <th align="left">Source</th>
+                    <th align="center">Selected</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td align="center">HI1-4</td>
+                    <td align="left">Capacity/Time of CC/CV charging phase</td>
+                    <td align="left">Charge Curve</td>
+                    <td align="center"></td>
+                </tr>
+                <tr>
+                    <td align="center"><strong>HI5</strong></td>
+                    <td align="left"><strong>CC discharge time in 3.8–3.4 V interval</strong></td>
+                    <td align="left"><strong>Discharge Curve</strong></td>
+                    <td align="center"><strong>✅</strong></td>
+                </tr>
+                <tr>
+                    <td align="center">HI6</td>
+                    <td align="left">Peak of IC curve</td>
+                    <td align="left">IC Curve</td>
+                    <td align="center"></td>
+                </tr>
+                <tr>
+                    <td align="center">HI7-12</td>
+                    <td align="left">Statistical features of charging voltage (Mean/Var, etc.)</td>
+                    <td align="left">Voltage</td>
+                    <td align="center"></td>
+                </tr>
+                <tr>
+                    <td align="center">HI13-16</td>
+                    <td align="left">Statistical features of charging current (Mean/Var, etc.)</td>
+                    <td align="left">Current</td>
+                    <td align="center"></td>
+                </tr>
+                <tr>
+                    <td align="center"><strong>HI17</strong></td>
+                    <td align="left"><strong>Information Entropy of charging current</strong></td>
+                    <td align="left"><strong>Current</strong></td>
+                    <td align="center"><strong>✅</strong></td>
+                </tr>
+                <tr>
+                    <td align="center"><strong>HI18</strong></td>
+                    <td align="left"><strong>Slope of charging current</strong></td>
+                    <td align="left"><strong>Current</strong></td>
+                    <td align="center"><strong>✅</strong></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3 id="32-advantages-of-self-attention-mechanism">3.2 Advantages of Self-Attention Mechanism</h3>
+
+        <div align="center">
+          <img src="https://github.com/user-attachments/assets/709cc939-833a-4985-9ad4-5ea93ab8ee60" />
+          <p><em>Fig. 2 Structure of the Self-Attention based model</em></p>
+        </div>
+
+        <p>Compared to Recurrent Neural Networks (RNN) or Long Short-Term Memory networks (LSTM), the self-attention mechanism has the following characteristics:</p>
+        <ul>
+            <li><strong>Global Dependency Capture</strong>: It can attend to the entire input sequence simultaneously, automatically assigning higher weights to key feature points, rather than relying solely on the recursive transmission of time steps.</li>
+            <li><strong>Feature Representation Capability</strong>: In the nonlinear fluctuation stages of battery degradation (such as capacity regeneration phenomena), the self-attention mechanism can better identify deep degradation laws, improving the robustness of feature learning.</li>
+        </ul>
+
+        <h3 id="33-transfer-learning-strategy">3.3 Transfer Learning Strategy: Pre-training and Fine-tuning</h3>
+        <p>This is the core logic for solving the small sample problem:</p>
+        <ol>
+            <li><strong>Offline Pre-training</strong>: Utilize the source domain (e.g., large-scale experimental data of NCM batteries) for training to build a model with basic degradation cognitive capabilities.</li>
+            <li><strong>Online Fine-tuning</strong>: For a specific target battery (e.g., NCA battery at low temperature), only the <strong>first 10% of cycle data</strong> is used to update the parameters of the fully connected layers, while the front-end feature extraction layers are frozen. This approach achieves cross-material and cross-scenario accuracy restoration with minimal computational cost.</li>
+        </ol>
+
+        <h2 id="4-experiment-design--datasets">4. Experiment Design & Multi-source Datasets</h2>
+        <p>To verify the generalization of SDTL, the study covered multiple experimental variables:</p>
+        <ul>
+            <li><strong>Cathode Material</strong>: Comparative study of lab-tested NCM batteries vs. public NCA datasets provided by NASA.</li>
+            <li><strong>Ambient Temperature</strong>: Covering 24°C (Room Temp) and 4°C (Low Temp).</li>
+            <li><strong>Discharge Rate</strong>: Covering 1C (Standard) and 2C (High Rate).</li>
+            <li><strong>Process</strong>: After training on the NCM dataset, the model was tested for transfer tasks on NCA datasets under different temperatures and rates.</li>
+        </ul>
+
+        <p><strong>Table 2: Overview of Experimental Dataset Parameters</strong></p>
+
+        <table>
+            <thead>
+                <tr>
+                    <th align="center">Series</th>
+                    <th align="center">Battery ID</th>
+                    <th align="center">Cathode</th>
+                    <th align="center">Charge Rate</th>
+                    <th align="center">Discharge Rate</th>
+                    <th align="center">Temp</th>
+                    <th align="center">Usage/Task</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td align="center">1</td>
+                    <td align="center">A1, A2</td>
+                    <td align="center"><strong>NCM</strong></td>
+                    <td align="center">1C</td>
+                    <td align="center">2C, 1C</td>
+                    <td align="center">24 °C</td>
+                    <td align="center"><strong>Source Pre-training</strong></td>
+                </tr>
+                <tr>
+                    <td align="center">2</td>
+                    <td align="center">B1-B4</td>
+                    <td align="center"><strong>NCA</strong></td>
+                    <td align="center">0.75C</td>
+                    <td align="center">1C</td>
+                    <td align="center">24 °C</td>
+                    <td align="center">Cross-Material</td>
+                </tr>
+                <tr>
+                    <td align="center">3</td>
+                    <td align="center">B5-B7</td>
+                    <td align="center"><strong>NCA</strong></td>
+                    <td align="center">0.75C</td>
+                    <td align="center"><strong>2C</strong></td>
+                    <td align="center">24 °C</td>
+                    <td align="center">Cross-Rate</td>
+                </tr>
+                <tr>
+                    <td align="center">4</td>
+                    <td align="center">B8-B10</td>
+                    <td align="center"><strong>NCA</strong></td>
+                    <td align="center">0.75C</td>
+                    <td align="center">1C</td>
+                    <td align="center"><strong>4 °C</strong></td>
+                    <td align="center"><strong>Cross-Temp</strong></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h2 id="5-performance-evaluation">5. Performance Evaluation & Results</h2>
+        <p>The experimental results demonstrate significant improvements in both accuracy and robustness:</p>
+        <ul>
+            <li><strong>Accuracy</strong>: In multiple transfer tasks, the Mean Absolute Error (MAE) of SDTL remained within 1%.</li>
+            <li><strong>Comparative Advantage</strong>: Compared to Transformer models without transfer fine-tuning, SDTL significantly reduced the RMSE under small sample conditions. In the 4°C low-temperature scenario, the accuracy improvement was particularly noticeable compared to LSTM models, proving the model's ability to capture degradation patterns in extreme environments.</li>
+            <li><strong>Stability</strong>: Verified through five independent experiments, the prediction error distribution of SDTL was more concentrated, demonstrating high reliability in practical engineering applications.</li>
+        </ul>
+
+        <div align="center">
+          <img src="https://github.com/user-attachments/assets/72922a9f-3e71-4036-988f-f8404edd6dd3" />
+          <p><em>Fig. 3 (a) SOH estimation results of three battery series (b) Fitting curve under low temperature (c) Violin plot of model error distribution</em></p>
+        </div>
+
+        <h2 id="6-conclusion">6. Conclusion</h2>
+        <p>This study demonstrates the superiority of combining self-attention mechanisms with deep transfer learning:</p>
+        <ol>
+            <li><strong>Rapid Adaptation</strong>: Modeling for new types of batteries can be completed with only a small amount of early degradation data (10%), significantly shortening the debugging cycle of BMS.</li>
+            <li><strong>Cross-Domain Generalization</strong>: Transfer learning effectively eliminates model deviations caused by differences in material systems and environmental temperatures.</li>
+            <li><strong>Computational Friendliness</strong>: The fine-tuning process requires updating only a small number of parameters, making it suitable for online updates in embedded BMS systems with limited computing power.</li>
+        </ol>
+
+        <hr>
+
+        <h2 id="link-to-paper">Link to Paper</h2>
+        <p>Li, X., Zhao, M., et al. "Deep transfer learning enabled online state-of-health estimation of lithium-ion batteries under small samples across different cathode materials, ambient temperature and charge-discharge protocols." <em>Journal of Power Sources</em> 650 (2025): 237503.</p>
+        <p><strong>DOI:</strong> <a href="https://doi.org/10.1016/j.jpowsour.2025.237503">10.1016/j.jpowsour.2025.237503</a></p>
+
+    </main>
+
+</body>
+</html>
