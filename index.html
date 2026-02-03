@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>锂电池健康状态在线估算论文笔记——SDTL</title>
+    <!-- 引入 GitHub 样式库 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.2.0/github-markdown.min.css">
+    <style>
+        /* 全局布局设置 */
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            min-height: 100vh;
+            background-color: #fff;
+            font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+        }
+
+        /* ----- 左侧侧边栏样式 ----- */
+        .sidebar {
+            width: 280px;
+            background-color: #f6f8fa; /* GitHub 侧边栏灰 */
+            border-right: 1px solid #d0d7de;
+            position: fixed; /* 固定在左侧 */
+            height: 100vh;
+            overflow-y: auto; /* 内容过多可滚动 */
+            padding: 24px;
+            box-sizing: border-box;
+            top: 0;
+            left: 0;
+            z-index: 100;
+        }
+
+        .sidebar h2 {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: #24292f;
+        }
+
+        .sidebar ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .sidebar li {
+            margin-bottom: 8px;
+        }
+
+        /* 目录链接样式 */
+        .sidebar a {
+            text-decoration: none;
+            color: #57606a;
+            font-size: 14px;
+            display: block;
+            padding: 4px 0;
+            transition: color 0.2s;
+        }
+
+        .sidebar a:hover {
+            color: #0969da; /* GitHub 蓝 */
+            text-decoration: underline;
+        }
+
+        /* 子目录缩进 */
+        .sidebar .sub-menu {
+            margin-left: 20px;
+            margin-top: 4px;
+            font-size: 13px;
+        }
+
+        /* ----- 右侧主要内容区域样式 ----- */
+        .main-content {
+            margin-left: 280px; /* 给侧边栏留出空间 */
+            flex: 1;
+            padding: 40px 60px;
+            max-width: 1000px; /* 限制阅读宽度 */
+        }
+
+        /* 平滑滚动效果 */
+        html {
+            scroll-behavior: smooth;
+        }
+
+        /* 图片居中修正 */
+        div[align="center"] {
+            text-align: center;
+            margin: 20px 0;
+        }
+        
+        /* 表格样式修正 */
+        table {
+            display: block;
+            width: 100%;
+            overflow: auto;
+        }
+
+        /* 移动端适配 */
+        @media (max-width: 900px) {
+            body { display: block; }
+            .sidebar {
+                position: relative;
+                width: 100%;
+                height: auto;
+                border-right: none;
+                border-bottom: 1px solid #d0d7de;
+            }
+            .main-content {
+                margin-left: 0;
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 左侧导航栏 -->
+    <nav class="sidebar">
+        <h2>目录 Navigation</h2>
+        <ul>
+            <li><a href="#1-背景与动机">1. 背景与动机</a></li>
+            <li><a href="#2-核心挑战小样本与跨工况">2. 核心挑战：小样本与跨工况</a></li>
+            <li>
+                <a href="#3-sdtl-技术架构解析">3. SDTL 技术架构解析</a>
+                <ul class="sub-menu">
+                    <li><a href="#31-健康指标his的提取与筛选">3.1 健康指标（HIs）的提取与筛选</a></li>
+                    <li><a href="#32-自注意力机制self-attention的优势">3.2 自注意力机制（Self-Attention）的优势</a></li>
+                    <li><a href="#33-迁移学习策略预训练与微调">3.3 迁移学习策略：预训练与微调</a></li>
+                </ul>
+            </li>
+            <li><a href="#4-实验设计与多源数据集">4. 实验设计与多源数据集</a></li>
+            <li><a href="#5-性能评估与结果分析">5. 性能评估与结果分析</a></li>
+            <li><a href="#6-结论">6. 结论</a></li>
+            <li><a href="#论文链接">论文链接</a></li>
+        </ul>
+    </nav>
+
+    <!-- 右侧 GitHub 风格正文 -->
+    <main class="main-content markdown-body">
+        
+        <h1>锂电池健康状态在线估算论文笔记——自注意力深度迁移学习（Self-attention based Deep Transfer Learning, SDTL）</h1>
+
+        <blockquote>
+            <p><strong>Deep Transfer Learning for Battery SOH Estimation</strong></p>
+            <p><strong>Paper Title:</strong> <em>Deep transfer learning enabled online state-of-health estimation of lithium-ion batteries under small samples across different cathode materials, ambient temperature and charge-discharge protocols</em></p>
+            <p><strong>Journal:</strong> <em>Journal of Power Sources</em>, Vol. 650, 2025, 237503</p>
+            <p><strong>DOI:</strong> <a href="https://doi.org/10.1016/j.jpowsour.2025.237503">10.1016/j.jpowsour.2025.237503</a></p>
+        </blockquote>
+
+        <p>
+            <a href="https://doi.org/10.1016/j.jpowsour.2025.237503"><img src="https://img.shields.io/badge/DOI-10.1016%2Fj.jpowsour.2025.237503-007ec6" alt="DOI"></a>
+            <a href="#"><img src="https://img.shields.io/badge/Status-Published-44cc11" alt="Status"></a>
+            <a href="#"><img src="https://img.shields.io/badge/Topic-Transfer%20Learning-ff8c00" alt="Topic"></a>
+        </p>
+
+        <!-- 这里的目录已移至左侧 Sidebar，正文中可以选择保留或隐藏，此处保留以维持原文完整性 -->
+        <h2 id="目录">目录</h2>
+        <ul>
+            <li><a href="#1-背景与动机">1. 背景与动机</a></li>
+            <li><a href="#2-核心挑战小样本与跨工况">2. 核心挑战：小样本与跨工况</a></li>
+            <li><a href="#3-sdtl-技术架构解析">3. SDTL 技术架构解析</a>
+               <ul>
+                   <li><a href="#31-健康指标his的提取与筛选">3.1 健康指标（HIs）的提取与筛选</a></li>
+                   <li><a href="#32-自注意力机制self-attention的优势">3.2 自注意力机制（Self-Attention）的优势</a></li>
+                   <li><a href="#33-迁移学习策略预训练与微调">3.3 迁移学习策略：预训练与微调</a></li>
+               </ul>
+            </li>
+            <li><a href="#4-实验设计与多源数据集">4. 实验设计与多源数据集</a></li>
+            <li><a href="#5-性能评估与结果分析">5. 性能评估与结果分析</a></li>
+            <li><a href="#6-结论">6. 结论</a></li>
+            <li><a href="#论文链接">论文链接</a></li>
+        </ul>
+
+        <hr>
+
+        <h2 id="1-背景与动机">1. 背景与动机</h2>
+        <p>锂离子电池的健康状态（SOH）估算对于保障储能系统安全、优化维护成本具有重要意义。随着深度学习技术的发展，数据驱动方法在SOH预测中展现出极高的精度。然而，实验室模型在推向实际应用时，往往受限于不同厂商的电池材料体系、多变的操作环境以及繁琐的数据标注过程。</p>
+
+        <h2 id="2-核心挑战小样本与跨工况">2. 核心挑战：小样本与跨工况</h2>
+        <p>在实际工程场景中，SOH估算主要面临以下两个难点：</p>
+        <ul>
+            <li><strong>初期数据稀缺性</strong>：新电池投入使用时，可用于训练的退化数据极少。传统深度学习模型在数据量不足（小样本）时极易发生过拟合。</li>
+            <li><strong>领域偏差（Domain Shift）</strong>：电池的退化规律会随正极材料（如NCM对比NCA）、环境温度（高温对比低温）及充放电协议的变化而改变。在一个场景下训练好的模型，直接应用到另一场景时精度会大幅下降。</li>
+        </ul>
+
+        <h2 id="3-sdtl-技术架构解析">3. SDTL 技术架构解析</h2>
+        <p>论文提出的自注意力深度迁移学习（SDTL）框架的思路为“通用退化知识提取 + 目标场景快速适配”。</p>
+
+        <div align="center">
+          <img src="https://github.com/user-attachments/assets/6b6e863d-13f0-4e45-a937-929d0944dde3" />
+          <p><em>图1 基于深度迁移学习的在线健康状态（SOH）估计框架</em></p>
+        </div>
+
+        <h3 id="31-健康指标his的提取与筛选">3.1 健康指标（HIs）的提取与筛选</h3>
+        <p>特征质量直接决定模型上限。该研究从电压、电流、时间和增量容量（IC）曲线中提取了18个健康指标，包括：</p>
+        <ul>
+            <li><strong>统计学特征</strong>：均值、方差、偏度、峰度及信息熵等。</li>
+            <li><strong>电化学特征</strong>：恒流/恒压充电时间、IC曲线峰值、电压斜率等。</li>
+            <li><strong>筛选策略</strong>：采用皮尔逊相关系数（PCC）进行敏感性分析，最终选择HI5（恒流放电时间）、HI17（充电电压熵）和HI18（充电电压斜率）作为模型输入，有效兼顾了计算效率与预测相关性。</li>
+        </ul>
+
+        <p><strong>表 1 多源健康指标（Health Indicators）提取列表</strong></p>
+
+        <table>
+            <thead>
+                <tr>
+                    <th align="center">编号</th>
+                    <th align="left">指标描述 (Description)</th>
+                    <th align="left">提取来源</th>
+                    <th align="center">是否选中</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td align="center">HI1-4</td>
+                    <td align="left">充电恒流/恒压段的容量与时间</td>
+                    <td align="left">Charge Curve</td>
+                    <td align="center"></td>
+                </tr>
+                <tr>
+                    <td align="center"><strong>HI5</strong></td>
+                    <td align="left"><strong>3.8–3.4 V 放电区间的恒流放电时间</strong></td>
+                    <td align="left"><strong>Discharge Curve</strong></td>
+                    <td align="center"><strong>✅</strong></td>
+                </tr>
+                <tr>
+                    <td align="center">HI6</td>
+                    <td align="left">IC 曲线峰值</td>
+                    <td align="left">IC Curve</td>
+                    <td align="center"></td>
+                </tr>
+                <tr>
+                    <td align="center">HI7-12</td>
+                    <td align="left">充电电压的统计特征 (均值/方差等)</td>
+                    <td align="left">Voltage</td>
+                    <td align="center"></td>
+                </tr>
+                <tr>
+                    <td align="center">HI13-16</td>
+                    <td align="left">充电电流的统计特征 (均值/方差等)</td>
+                    <td align="left">Current</td>
+                    <td align="center"></td>
+                </tr>
+                <tr>
+                    <td align="center"><strong>HI17</strong></td>
+                    <td align="left"><strong>充电电流的信息熵 (Entropy)</strong></td>
+                    <td align="left"><strong>Current</strong></td>
+                    <td align="center"><strong>✅</strong></td>
+                </tr>
+                <tr>
+                    <td align="center"><strong>HI18</strong></td>
+                    <td align="left"><strong>充电电流的变化斜率 (Slope)</strong></td>
+                    <td align="left"><strong>Current</strong></td>
+                    <td align="center"><strong>✅</strong></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3 id="32-自注意力机制self-attention的优势">3.2 自注意力机制（Self-Attention）的优势</h3>
+
+        <div align="center">
+          <img src="https://github.com/user-attachments/assets/709cc939-833a-4985-9ad4-5ea93ab8ee60" />
+          <p><em>图2 基于自注意力的模型结构</em></p>
+        </div>
+
+        <p>相较于循环神经网络（RNN）或长短期记忆网络（LSTM），自注意力机制具备以下特点：</p>
+        <ul>
+            <li><strong>全局依赖捕捉</strong>：能够同时关注整个输入序列，自动为关键特征点分配更高的权重，而非仅依赖时间步的递归传递。</li>
+            <li><strong>特征表征能力</strong>：在电池退化的非线性波动阶段（如容量回升现象），自注意力机制能更好地识别出深层的退化规律，提高特征学习的稳健性。</li>
+        </ul>
+
+        <h3 id="33-迁移学习策略预训练与微调">3.3 迁移学习策略：预训练与微调</h3>
+        <p>这是解决小样本问题的核心逻辑：</p>
+        <ol>
+            <li><strong>离线预训练</strong>：利用源域（如NCM电池的大规模实验数据）进行训练，构建具备基础退化认知能力的模型。</li>
+            <li><strong>在线微调</strong>：针对特定的目标电池（如低温下的NCA电池），仅利用其<strong>前10%的循环数据</strong>对模型的全连接层进行参数更新，而冻结模型的前端特征提取层。这种方式仅需极小的计算代价即可实现跨材料、跨场景的精度修复。</li>
+        </ol>
+
+        <h2 id="4-实验设计与多源数据集">4. 实验设计与多源数据集</h2>
+        <p>为了验证SDTL的泛化性，研究涵盖了多种实验变量：</p>
+        <ul>
+            <li><strong>正极材料</strong>：对比研究了实验室自测的NCM电池与NASA提供的NCA公开数据集。</li>
+            <li><strong>环境温度</strong>：涵盖24°C（常温）与4°C（低温）环境。</li>
+            <li><strong>放电倍率</strong>：涵盖1C（标准倍率）与2C（高倍率）条件。</li>
+            <li><strong>实验流程</strong>：模型在NCM数据集上训练后，分别向不同温度和倍率下的NCA数据集进行迁移任务测试。</li>
+        </ul>
+
+        <p><strong>表 2 实验数据集参数一览</strong></p>
+
+        <table>
+            <thead>
+                <tr>
+                    <th align="center">系列</th>
+                    <th align="center">电池编号</th>
+                    <th align="center">正极材料</th>
+                    <th align="center">充电倍率</th>
+                    <th align="center">放电倍率</th>
+                    <th align="center">温度</th>
+                    <th align="center">用途</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td align="center">1</td>
+                    <td align="center">A1, A2</td>
+                    <td align="center"><strong>NCM</strong></td>
+                    <td align="center">1C</td>
+                    <td align="center">2C, 1C</td>
+                    <td align="center">24 °C</td>
+                    <td align="center"><strong>源域预训练</strong></td>
+                </tr>
+                <tr>
+                    <td align="center">2</td>
+                    <td align="center">B1-B4</td>
+                    <td align="center"><strong>NCA</strong></td>
+                    <td align="center">0.75C</td>
+                    <td align="center">1C</td>
+                    <td align="center">24 °C</td>
+                    <td align="center">跨材料测试</td>
+                </tr>
+                <tr>
+                    <td align="center">3</td>
+                    <td align="center">B5-B7</td>
+                    <td align="center"><strong>NCA</strong></td>
+                    <td align="center">0.75C</td>
+                    <td align="center"><strong>2C</strong></td>
+                    <td align="center">24 °C</td>
+                    <td align="center">跨倍率测试</td>
+                </tr>
+                <tr>
+                    <td align="center">4</td>
+                    <td align="center">B8-B10</td>
+                    <td align="center"><strong>NCA</strong></td>
+                    <td align="center">0.75C</td>
+                    <td align="center">1C</td>
+                    <td align="center"><strong>4 °C</strong></td>
+                    <td align="center"><strong>跨温度测试</strong></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h2 id="5-性能评估与结果分析">5. 性能评估与结果分析</h2>
+        <p>实验结果展示了该方法在精度与鲁棒性上的显著提升：</p>
+        <ul>
+            <li><strong>精度表现</strong>：在多项迁移任务中，SDTL的平均绝对误差（MAE）均保持在1%以内。</li>
+            <li><strong>对比优势</strong>：与未经过迁移微调的Transformer模型相比，SDTL在小样本条件下的RMSE降低了显著比例。在4°C低温场景下，相比LSTM模型，其精度提升尤为明显，证明了模型对极端环境退化模式的捕捉能力。</li>
+            <li><strong>稳定性</strong>：经过五次独立实验验证，SDTL的预测误差分布更为集中，展现了在实际工程应用中的高可靠性。</li>
+        </ul>
+
+        <div align="center">
+          <img src="https://github.com/user-attachments/assets/72922a9f-3e71-4036-988f-f8404edd6dd3" />
+          <p><em>图3 (a) 三组电池系列的 SOH 估算结果 (b) 低温工况拟合曲线 (c) 模型误差分布小提琴图</em></p>
+        </div>
+
+        <h2 id="6-结论">6. 结论</h2>
+        <p>该研究展示了自注意力机制与深度迁移学习结合的优越性：</p>
+        <ol>
+            <li><strong>极速适配</strong>：只需极少量的早期退化数据（10%），即可完成对新类型电池的建模，大幅缩短了BMS的调试周期。</li>
+            <li><strong>跨域通用</strong>：通过迁移学习有效消除了材料体系与环境温差带来的模型偏离。</li>
+            <li><strong>计算友好</strong>：微调过程仅需更新少量参数，适合在算力受限的嵌入式BMS系统中进行在线更新。</li>
+        </ol>
+
+        <hr>
+
+        <h2 id="论文链接">论文链接</h2>
+        <p>Li, X., Zhao, M., et al. "Deep transfer learning enabled online state-of-health estimation of lithium-ion batteries under small samples across different cathode materials, ambient temperature and charge-discharge protocols." <em>Journal of Power Sources</em> 650 (2025): 237503.</p>
+        <p><strong>DOI:</strong> <a href="https://doi.org/10.1016/j.jpowsour.2025.237503">10.1016/j.jpowsour.2025.237503</a></p>
+
+    </main>
+
+</body>
+</html>
