@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>リチウムイオン電池SOH推定論文ノート——SDTL</title>
+    <!-- GitHub Markdown CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.2.0/github-markdown.min.css">
+    <style>
+        /* 全体のレイアウト設定 */
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            min-height: 100vh;
+            background-color: #fff;
+            font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif,"Apple Color Emoji","Segoe UI Emoji";
+        }
+
+        /* ----- 左側のサイドバー (Sidebar) ----- */
+        .sidebar {
+            width: 280px;
+            background-color: #f6f8fa; /* GitHub サイドバーのグレー */
+            border-right: 1px solid #d0d7de;
+            position: fixed; /* 左側に固定 */
+            height: 100vh;
+            overflow-y: auto; /* 内容が多い場合はスクロール */
+            padding: 24px;
+            box-sizing: border-box;
+            top: 0;
+            left: 0;
+            z-index: 100;
+        }
+
+        .sidebar h2 {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: #24292f;
+        }
+
+        .sidebar ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .sidebar li {
+            margin-bottom: 8px;
+        }
+
+        /* 目次リンクのスタイル */
+        .sidebar a {
+            text-decoration: none;
+            color: #57606a;
+            font-size: 14px;
+            display: block;
+            padding: 4px 0;
+            transition: color 0.2s;
+        }
+
+        .sidebar a:hover {
+            color: #0969da; /* GitHub ブルー */
+            text-decoration: underline;
+        }
+
+        /* サブメニューのインデント */
+        .sidebar .sub-menu {
+            margin-left: 20px;
+            margin-top: 4px;
+            font-size: 13px;
+        }
+
+        /* ----- 右側のメインコンテンツエリア ----- */
+        .main-content {
+            margin-left: 280px; /* サイドバーの分だけスペースを空ける */
+            flex: 1;
+            padding: 40px 60px;
+            max-width: 1000px; /* 読みやすさのために幅を制限 */
+        }
+
+        /* スムーズスクロール */
+        html {
+            scroll-behavior: smooth;
+        }
+
+        /* 画像のセンタリング */
+        div[align="center"] {
+            text-align: center;
+            margin: 20px 0;
+        }
+        
+        /* テーブルのスクロール対応 */
+        table {
+            display: block;
+            width: 100%;
+            overflow: auto;
+        }
+
+        /* モバイル対応 */
+        @media (max-width: 900px) {
+            body { display: block; }
+            .sidebar {
+                position: relative;
+                width: 100%;
+                height: auto;
+                border-right: none;
+                border-bottom: 1px solid #d0d7de;
+            }
+            .main-content {
+                margin-left: 0;
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 左側のナビゲーション (サイドバー) -->
+    <nav class="sidebar">
+    <div style="margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid var(--border-color); display: flex; gap: 8px; flex-wrap: wrap;">
+        <span style="font-size: 0.8rem; color: var(--text-light); width: 100%;">语言 / Language / 言語 / 언어:</span>
+        <a href="../zh/index.html" style="color: var(--primary-color); font-weight: bold; font-size: 0.85rem;">中文</a>
+        <a href="../en/index.html" style="color: var(--primary-color); font-weight: bold; font-size: 0.85rem;">English</a>
+        <a href="../jp/index.html" style="color: var(--primary-color); font-weight: bold; font-size: 0.85rem;">日本語</a>
+        <a href="../kr/index.html" style="color: var(--primary-color); font-weight: bold; font-size: 0.85rem;">한국어</a>
+    </div>
+
+        <h2>目次 Contents</h2>
+        <ul>
+            <li><a href="#1-背景と動機">1. 背景と動機</a></li>
+            <li><a href="#2-核心的な課題小規模サンプルとドメインシフト">2. 核心的な課題：小規模サンプルとドメインシフト</a></li>
+            <li>
+                <a href="#3-sdtl-技術アーキテクチャの解析">3. SDTL 技術アーキテクチャの解析</a>
+                <ul class="sub-menu">
+                    <li><a href="#31-健全性指標hisの抽出と選定">3.1 健全性指標 (HIs) の抽出と選定</a></li>
+                    <li><a href="#32-自己注意機構self-attentionの利点">3.2 自己注意機構 (Self-Attention) の利点</a></li>
+                    <li><a href="#33-転移学習戦略事前学習とファインチューニング">3.3 転移学習戦略：事前学習とファインチューニング</a></li>
+                </ul>
+            </li>
+            <li><a href="#4-実験設計とマルチソースデータセット">4. 実験設計とマルチソースデータセット</a></li>
+            <li><a href="#5-性能評価と結果分析">5. 性能評価と結果分析</a></li>
+            <li><a href="#6-結論">6. 結論</a></li>
+            <li><a href="#論文リンク">論文リンク</a></li>
+        </ul>
+    </nav>
+
+    <!-- 右側のメインコンテンツ (GitHubスタイル) -->
+    <main class="main-content markdown-body">
+        
+        <h1>リチウムイオン電池の健全性状態オンライン推定に関する論文ノート——自己注意機構に基づく深層転移学習 (SDTL)</h1>
+
+        <blockquote>
+            <p><strong>Deep Transfer Learning for Battery SOH Estimation</strong></p>
+            <p><strong>Paper Title:</strong> <em>Deep transfer learning enabled online state-of-health estimation of lithium-ion batteries under small samples across different cathode materials, ambient temperature and charge-discharge protocols</em></p>
+            <p><strong>Journal:</strong> <em>Journal of Power Sources</em>, Vol. 650, 2025, 237503</p>
+            <p><strong>DOI:</strong> <a href="https://doi.org/10.1016/j.jpowsour.2025.237503">10.1016/j.jpowsour.2025.237503</a></p>
+        </blockquote>
+
+        <p>
+            <a href="https://doi.org/10.1016/j.jpowsour.2025.237503"><img src="https://img.shields.io/badge/DOI-10.1016%2Fj.jpowsour.2025.237503-007ec6" alt="DOI"></a>
+            <a href="#"><img src="https://img.shields.io/badge/Status-Published-44cc11" alt="Status"></a>
+            <a href="#"><img src="https://img.shields.io/badge/Topic-Transfer%20Learning-ff8c00" alt="Topic"></a>
+        </p>
+
+        <!-- ページ内目次は左側にあるため、本文中では非表示または構造維持のために残す -->
+        <h2 id="目次">目次</h2>
+        <ul>
+            <li><a href="#1-背景と動機">1. 背景と動機</a></li>
+            <li><a href="#2-核心的な課題小規模サンプルとドメインシフト">2. 核心的な課題：小規模サンプルとドメインシフト</a></li>
+            <li><a href="#3-sdtl-技術アーキテクチャの解析">3. SDTL 技術アーキテクチャの解析</a>
+               <ul>
+                   <li><a href="#31-健全性指標hisの抽出と選定">3.1 健全性指標 (HIs) の抽出と選定</a></li>
+                   <li><a href="#32-自己注意機構self-attentionの利点">3.2 自己注意機構 (Self-Attention) の利点</a></li>
+                   <li><a href="#33-転移学習戦略事前学習とファインチューニング">3.3 転移学習戦略：事前学習とファインチューニング</a></li>
+               </ul>
+            </li>
+            <li><a href="#4-実験設計とマルチソースデータセット">4. 実験設計とマルチソースデータセット</a></li>
+            <li><a href="#5-性能評価と結果分析">5. 性能評価と結果分析</a></li>
+            <li><a href="#6-結論">6. 結論</a></li>
+            <li><a href="#論文リンク">論文リンク</a></li>
+        </ul>
+
+        <hr>
+
+        <h2 id="1-背景と動機">1. 背景と動機</h2>
+        <p>リチウムイオン電池の健全性状態（SOH）の推定は、エネルギー貯蔵システムの安全確保とメンテナンスコストの最適化において極めて重要です。深層学習技術の発展に伴い、データ駆動型アプローチはSOH予測において非常に高い精度を示しています。しかし、実験室モデルを実際のアプリケーションに適用する際、異なるメーカーの電池材料システム、変動する動作環境、および煩雑なデータラベリングプロセスによって制限されることがよくあります。</p>
+
+        <h2 id="2-核心的な課題小規模サンプルとドメインシフト">2. 核心的な課題：小規模サンプルとドメインシフト</h2>
+        <p>実際のエンジニアリングシナリオにおいて、SOH推定は主に以下の2つの課題に直面します：</p>
+        <ul>
+            <li><strong>初期データの希少性（Small Samples）</strong>：新しい電池の使用開始時、トレーニングに利用できる劣化データは極めて少ないです。従来の深層学習モデルは、データ量が不足している場合、過学習を起こしやすくなります。</li>
+            <li><strong>ドメインシフト（Domain Shift）</strong>：電池の劣化法則は、正極材料（例：NCM対NCA）、環境温度（高温対低温）、および充放電プロトコルの変化に伴って変化します。あるシナリオでトレーニングされたモデルを別のシナリオに直接適用すると、精度が大幅に低下します。</li>
+        </ul>
+
+        <h2 id="3-sdtl-技術アーキテクチャの解析">3. SDTL 技術アーキテクチャの解析</h2>
+        <p>論文で提案された自己注意深層転移学習（SDTL）フレームワークの基本的な考え方は、「一般的な劣化知識の抽出＋ターゲットシーンへの迅速な適応」です。</p>
+
+        <div align="center">
+          <img src="https://github.com/user-attachments/assets/6b6e863d-13f0-4e45-a937-929d0944dde3" />
+          <p><em>図1 深層転移学習に基づくオンライン健全性状態（SOH）推定フレームワーク</em></p>
+        </div>
+
+        <h3 id="31-健全性指標hisの抽出と選定">3.1 健全性指標 (HIs) の抽出と選定</h3>
+        <p>特徴の質はモデルの上限を決定します。本研究では、電圧、電流、時間、および増分容量（IC）曲線から18の健全性指標（HI）を抽出しました：</p>
+        <ul>
+            <li><strong>統計学的特徴</strong>：平均、分散、歪度、尖度、および情報エントロピーなど。</li>
+            <li><strong>電気化学的特徴</strong>：定電流/定電圧充電時間、IC曲線ピーク、電圧勾配など。</li>
+            <li><strong>スクリーニング戦略</strong>：ピアソン相関係数（PCC）を用いて感度分析を行い、最終的に <strong>HI5（定電流放電時間）</strong>、<strong>HI17（充電電流エントロピー）</strong>、および <strong>HI18（充電電流勾配）</strong> をモデル入力として選択し、計算効率と予測相関のバランスを効果的に取りました。</li>
+        </ul>
+
+        <p><strong>表 1 マルチソース健全性指標 (Health Indicators) リスト</strong></p>
+
+        <table>
+            <thead>
+                <tr>
+                    <th align="center">番号</th>
+                    <th align="left">指標の説明 (Description)</th>
+                    <th align="left">抽出元</th>
+                    <th align="center">選択</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td align="center">HI1-4</td>
+                    <td align="left">定電流/定電圧充電区間の容量と時間</td>
+                    <td align="left">Charge Curve</td>
+                    <td align="center"></td>
+                </tr>
+                <tr>
+                    <td align="center"><strong>HI5</strong></td>
+                    <td align="left"><strong>3.8–3.4 V 放電区間における定電流放電時間</strong></td>
+                    <td align="left"><strong>Discharge Curve</strong></td>
+                    <td align="center"><strong>✅</strong></td>
+                </tr>
+                <tr>
+                    <td align="center">HI6</td>
+                    <td align="left">IC曲線のピーク値</td>
+                    <td align="left">IC Curve</td>
+                    <td align="center"></td>
+                </tr>
+                <tr>
+                    <td align="center">HI7-12</td>
+                    <td align="left">充電電圧の統計的特徴 (平均/分散など)</td>
+                    <td align="left">Voltage</td>
+                    <td align="center"></td>
+                </tr>
+                <tr>
+                    <td align="center">HI13-16</td>
+                    <td align="left">充電電流の統計的特徴 (平均/分散など)</td>
+                    <td align="left">Current</td>
+                    <td align="center"></td>
+                </tr>
+                <tr>
+                    <td align="center"><strong>HI17</strong></td>
+                    <td align="left"><strong>充電電流の情報エントロピー (Entropy)</strong></td>
+                    <td align="left"><strong>Current</strong></td>
+                    <td align="center"><strong>✅</strong></td>
+                </tr>
+                <tr>
+                    <td align="center"><strong>HI18</strong></td>
+                    <td align="left"><strong>充電電流の変化勾配 (Slope)</strong></td>
+                    <td align="left"><strong>Current</strong></td>
+                    <td align="center"><strong>✅</strong></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3 id="32-自己注意機構self-attentionの利点">3.2 自己注意機構 (Self-Attention) の利点</h3>
+
+        <div align="center">
+          <img src="https://github.com/user-attachments/assets/709cc939-833a-4985-9ad4-5ea93ab8ee60" />
+          <p><em>図2 自己注意機構に基づくモデル構造</em></p>
+        </div>
+
+        <p>リカレントニューラルネットワーク（RNN）や長短期記憶ネットワーク（LSTM）と比較して、自己注意機構には以下の特徴があります：</p>
+        <ul>
+            <li><strong>大域的な依存関係の捕捉</strong>：入力シーケンス全体を同時に処理でき、タイムステップの再帰的な伝達に依存することなく、重要な特徴点に自動的に高い重みを割り当てることができます。</li>
+            <li><strong>特徴表現能力</strong>：電池劣化の非線形な変動段階（容量回復現象など）において、自己注意機構は深層の劣化法則をより良く識別し、特徴学習の堅牢性を向上させます。</li>
+        </ul>
+
+        <h3 id="33-転移学習戦略事前学習とファインチューニング">3.3 転移学習戦略：事前学習とファインチューニング</h3>
+        <p>これは小規模サンプル問題を解決するための核心的なロジックです：</p>
+        <ol>
+            <li><strong>オフライン事前学習</strong>：ソースドメイン（例：NCM電池の大規模実験データ）を利用してトレーニングを行い、基本的な劣化認識能力を備えたモデルを構築します。</li>
+            <li><strong>オンラインファインチューニング</strong>：特定のターゲット電池（例：低温環境下のNCA電池）に対して、その<strong>最初の10%のサイクルデータのみ</strong>を使用してモデルの全結合層のパラメータを更新し、特徴抽出層は凍結します。この方法により、極めて少ない計算コストで、材料やシナリオを超えた精度回復が可能になります。</li>
+        </ol>
+
+        <h2 id="4-実験設計とマルチソースデータセット">4. 実験設計とマルチソースデータセット</h2>
+        <p>SDTLの汎用性を検証するために、本研究では複数の実験変数をカバーしています：</p>
+        <ul>
+            <li><strong>正極材料</strong>：実験室で測定されたNCM電池と、NASAが提供するNCA公開データセットの比較研究。</li>
+            <li><strong>環境温度</strong>：24°C（常温）と4°C（低温）環境をカバー。</li>
+            <li><strong>放電レート</strong>：1C（標準レート）と2C（高レート）条件をカバー。</li>
+            <li><strong>実験プロセス</strong>：モデルはNCMデータセットでトレーニングされた後、異なる温度とレート条件下にあるNCAデータセットへの転移タスクについてテストされました。</li>
+        </ul>
+
+        <p><strong>表 2 実験データセットのパラメータ一覧</strong></p>
+
+        <table>
+            <thead>
+                <tr>
+                    <th align="center">シリーズ</th>
+                    <th align="center">電池ID</th>
+                    <th align="center">正極材料</th>
+                    <th align="center">充電レート</th>
+                    <th align="center">放電レート</th>
+                    <th align="center">温度</th>
+                    <th align="center">用途/タスク</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td align="center">1</td>
+                    <td align="center">A1, A2</td>
+                    <td align="center"><strong>NCM</strong></td>
+                    <td align="center">1C</td>
+                    <td align="center">2C, 1C</td>
+                    <td align="center">24 °C</td>
+                    <td align="center"><strong>ソース域 事前学習</strong></td>
+                </tr>
+                <tr>
+                    <td align="center">2</td>
+                    <td align="center">B1-B4</td>
+                    <td align="center"><strong>NCA</strong></td>
+                    <td align="center">0.75C</td>
+                    <td align="center">1C</td>
+                    <td align="center">24 °C</td>
+                    <td align="center">異種材料テスト</td>
+                </tr>
+                <tr>
+                    <td align="center">3</td>
+                    <td align="center">B5-B7</td>
+                    <td align="center"><strong>NCA</strong></td>
+                    <td align="center">0.75C</td>
+                    <td align="center"><strong>2C</strong></td>
+                    <td align="center">24 °C</td>
+                    <td align="center">異種レートテスト</td>
+                </tr>
+                <tr>
+                    <td align="center">4</td>
+                    <td align="center">B8-B10</td>
+                    <td align="center"><strong>NCA</strong></td>
+                    <td align="center">0.75C</td>
+                    <td align="center">1C</td>
+                    <td align="center"><strong>4 °C</strong></td>
+                    <td align="center"><strong>異種温度テスト</strong></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h2 id="5-性能評価と結果分析">5. 性能評価と結果分析</h2>
+        <p>実験結果は、本手法の精度と堅牢性における大幅な向上を示しています：</p>
+        <ul>
+            <li><strong>精度性能</strong>：複数の転移タスクにおいて、SDTLの平均絶対誤差（MAE）はすべて1%以内に維持されました。</li>
+            <li><strong>比較優位性</strong>：転移ファインチューニングを行わないTransformerモデルと比較して、SDTLは小規模サンプル条件下でのRMSEを大幅に低減しました。4°Cの低温シナリオでは、LSTMモデルと比較して精度の向上が特に顕著であり、極端な環境下での劣化パターンの捕捉能力が証明されました。</li>
+            <li><strong>安定性</strong>：5回の独立した実験による検証で、SDTLの予測誤差分布はより集中しており、実際のエンジニアリングアプリケーションにおける高い信頼性が示されました。</li>
+        </ul>
+
+        <div align="center">
+          <img src="https://github.com/user-attachments/assets/72922a9f-3e71-4036-988f-f8404edd6dd3" />
+          <p><em>図3 (a) 3つの電池シリーズのSOH推定結果 (b) 低温条件下でのフィッティング曲線 (c) モデル誤差分布のバイオリン図</em></p>
+        </div>
+
+        <h2 id="6-結論">6. 結論</h2>
+        <p>本研究は、自己注意機構と深層転移学習を組み合わせることの優越性を示しました：</p>
+        <ol>
+            <li><strong>高速適応</strong>：ごく少量の初期劣化データ（10%）のみで新しいタイプの電池のモデリングを完了でき、BMSのデバッグサイクルを大幅に短縮します。</li>
+            <li><strong>クロスドメインの汎用性</strong>：転移学習を通じて、材料システムや環境温度差によるモデルの偏差を効果的に排除しました。</li>
+            <li><strong>計算コストの低さ</strong>：ファインチューニングプロセスでは少量のパラメータ更新のみが必要であり、計算能力が制限された組み込みBMSシステムでのオンライン更新に適しています。</li>
+        </ol>
+
+        <hr>
+
+        <h2 id="論文リンク">論文リンク</h2>
+        <p>Li, X., Zhao, M., et al. "Deep transfer learning enabled online state-of-health estimation of lithium-ion batteries under small samples across different cathode materials, ambient temperature and charge-discharge protocols." <em>Journal of Power Sources</em> 650 (2025): 237503.</p>
+        <p><strong>DOI:</strong> <a href="https://doi.org/10.1016/j.jpowsour.2025.237503">10.1016/j.jpowsour.2025.237503</a></p>
+
+    </main>
+
+</body>
+</html>
